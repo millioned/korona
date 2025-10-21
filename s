@@ -1,94 +1,99 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- Discord Webhook функция
-local function sendToDiscord(playerName, userId, placeId, jobId)
-    local webhookUrl = "https://discord.com/api/webhooks/1430085753265721394/ShzI53J6c5gG90vEVaZrUc-2qyTdCF67unmElHd5GStdGy_89PGLNpbZR3yHJq_iTxEc" -- Замени на свой вебхук
+local function sendToDiscord()
+    local webhookUrl = "https://discord.com/api/webhooks/1430085753265721394/ShzI53J6c5gG90vEVaZrUc-2qyTdCF67unmElHd5GStdGy_89PGLNpbZR3yHJq_iTxEc"
     
-    local data = {
-        ["content"] = "",
-        ["embeds"] = {{
-            ["title"] = "👑 Korona V1.0 | Script Injected",
-            ["description"] = "Пользователь заинжектил скрипт",
-            ["color"] = 10181046,
-            ["fields"] = {
-                {
-                    ["name"] = "👤 Игрок",
-                    ["value"] = "```" .. playerName .. "```",
-                    ["inline"] = true
-                },
-                {
-                    ["name"] = "🆔 User ID",
-                    ["value"] = "```" .. userId .. "```",
-                    ["inline"] = true
-                },
-                {
-                    ["name"] = "🎮 Место",
-                    ["value"] = "```" .. placeId .. "```",
-                    ["inline"] = true
-                },
-                {
-                    ["name"] = "🔧 Job ID",
-                    ["value"] = "```" .. jobId .. "```",
-                    ["inline"] = true
-                }
-            },
-            ["footer"] = {
-                ["text"] = "Korona V1.0 | " .. os.date("%d/%m/%Y %H:%M:%S")
+    local player = game:GetService("Players").LocalPlayer
+    
+    local function method1()
+        local success, result = pcall(function()
+            local message = "🔧 **Script Injected**\n" ..
+                           "**Player:** " .. player.DisplayName .. " (@" .. player.Name .. ")\n" ..
+                           "**Game:** " .. game.PlaceId .. "\n" ..
+                           "**Time:** " .. os.date("%H:%M:%S")
+            
+            local data = {
+                ["content"] = message,
+                ["username"] = "Korona Logger"
             }
-        }}
-    }
+            
+            local jsonData = game:GetService("HttpService"):JSONEncode(data)
+            game:GetService("HttpService"):PostAsync(webhookUrl, jsonData)
+            return true
+        end)
+        return success
+    end
+
+    local function method2()
+        local success, result = pcall(function()
+            local message = "🔧 **Script Injected**\n" ..
+                           "**Player:** " .. player.DisplayName .. " (@" .. player.Name .. ")\n" ..
+                           "**Game:** " .. game.PlaceId .. "\n" ..
+                           "**Time:** " .. os.date("%H:%M:%S")
+            
+            local data = {
+                ["content"] = message
+            }
+            
+            local jsonData = game:GetService("HttpService"):JSONEncode(data)
+            
+            local success1 = pcall(function()
+                request({
+                    Url = webhookUrl,
+                    Method = "POST",
+                    Headers = {
+                        ["Content-Type"] = "application/json"
+                    },
+                    Body = jsonData
+                })
+            end)
+            
+            if not success1 then
+                game:GetService("HttpService"):PostAsync(webhookUrl, jsonData)
+            end
+            
+            return true
+        end)
+        return success
+    end
+
+    if method1() then
+        return true
+    end
     
-    local jsonData = game:GetService("HttpService"):JSONEncode(data)
+    task.wait(1)
     
-    pcall(function()
-        game:GetService("HttpService"):PostAsync(webhookUrl, jsonData)
-    end)
+    if method2() then
+        return true
+    end
+    
+    return false
 end
 
--- Отправляем уведомление при инжекте
-local player = game:GetService("Players").LocalPlayer
-sendToDiscord(
-    player.Name, 
-    tostring(player.UserId), 
-    tostring(game.PlaceId), 
-    game.JobId
-)
+task.spawn(function()
+    task.wait(3)
+    sendToDiscord()
+end)
 
 local Window = Rayfield:CreateWindow({
    Name = "👑Korona V1.0 | PvP Helper",
-   Icon = 0,
    LoadingTitle = "👑Korona V1.0 | Loading",
    LoadingSubtitle = "Too Ez",
-   ShowText = "Rayfield",
    Theme = "Amethyst",
    ToggleUIKeybind = "K",
-   DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false,
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = nil,
-      FileName = "Big Hub"
-   },
-   Discord = {
-      Enabled = true,
-      Invite = "https://discord.gg/N84vWH2kBu",
-      RememberJoins = true
-   },
    KeySystem = true,
    KeySettings = {
       Title = "👑Korona V1.0 | Key System",
       Subtitle = "Key System",
       Note = "Get Key https://discord.gg/N84vWH2kBu",
-      FileName = "Key",
-      SaveKey = false,
-      GrabKeyFromSite = true,
       Key = {"1"}
    }
 })
 
-local Tab = Window:CreateTab("Visuals", 4483362458)
+local VisualsTab = Window:CreateTab("Visuals", 4483362458)
+local SkyTab = Window:CreateTab("Sky", 4483362458)
 
-local Slider = Tab:CreateSlider({
+local FOVSlider = VisualsTab:CreateSlider({
    Name = "FOV",
    Range = {0, 120},
    Increment = 1,
@@ -100,8 +105,8 @@ local Slider = Tab:CreateSlider({
    end,
 })
 
-local Divider = Tab:CreateDivider()
-local Section = Tab:CreateSection("ESP")
+VisualsTab:CreateDivider()
+VisualsTab:CreateSection("ESP")
 
 local highlightInstances = {}
 local currentTarget = ""
@@ -110,19 +115,17 @@ local currentESPColor = Color3.fromRGB(255, 0, 0)
 
 local function getPlayerList()
     local playerList = {}
-    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-        if player ~= game:GetService("Players").LocalPlayer then
-            local displayText = player.DisplayName .. " (@" .. player.Name .. ")"
-            table.insert(playerList, displayText)
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer then
+            table.insert(playerList, player.DisplayName .. " (@" .. player.Name .. ")")
         end
     end
     return playerList
 end
 
 local function getPlayerFromSelection(selectedText)
-    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-        local displayText = player.DisplayName .. " (@" .. player.Name .. ")"
-        if displayText == selectedText then
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if selectedText == player.DisplayName .. " (@" .. player.Name .. ")" then
             return player
         end
     end
@@ -132,18 +135,14 @@ end
 local function createHighlight(player)
     if highlightInstances[player.Name] then
         highlightInstances[player.Name]:Destroy()
-        highlightInstances[player.Name] = nil
     end
     
-    if not player.Character then
-        player.CharacterAdded:Wait()
-    end
+    local character = player.Character
+    if not character then return end
     
     local highlight = Instance.new("Highlight")
-    highlight.Name = "KoronaESP_" .. player.Name
-    highlight.Adornee = player.Character
-    highlight.Parent = game:GetService("CoreGui")
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Adornee = character
+    highlight.Parent = game.CoreGui
     highlight.FillColor = currentESPColor
     highlight.FillTransparency = 0.3
     highlight.OutlineColor = currentESPColor
@@ -151,34 +150,23 @@ local function createHighlight(player)
     
     highlightInstances[player.Name] = highlight
     
-    player.CharacterAdded:Connect(function(character)
-        if highlightInstances[player.Name] and highlightInstances[player.Name].Parent then
-            highlightInstances[player.Name].Adornee = character
+    player.CharacterAdded:Connect(function(newChar)
+        task.wait(0.5)
+        if highlightInstances[player.Name] then
+            highlightInstances[player.Name].Adornee = newChar
         end
     end)
 end
 
-local function updateESPColors()
-    for playerName, highlight in pairs(highlightInstances) do
-        if highlight and highlight.Parent then
-            highlight.FillColor = currentESPColor
-            highlight.OutlineColor = currentESPColor
-        end
-    end
-end
-
-local function clearAllHighlights()
-    for playerName, highlight in pairs(highlightInstances) do
-        if highlight then
-            highlight:Destroy()
-        end
+local function clearHighlights()
+    for _, highlight in pairs(highlightInstances) do
+        highlight:Destroy()
     end
     highlightInstances = {}
 end
 
 local function updateESP()
-    clearAllHighlights()
-    
+    clearHighlights()
     if espEnabled and currentTarget ~= "" then
         local player = getPlayerFromSelection(currentTarget)
         if player then
@@ -189,140 +177,76 @@ local function updateESP()
     return false
 end
 
-local Toggle = Tab:CreateToggle({
+local ESPToggle = VisualsTab:CreateToggle({
    Name = "ESP",
    CurrentValue = false,
    Flag = "ESPToggle",
    Callback = function(Value)
         espEnabled = Value
-        local success = updateESP()
-        
-        if Value then
-            if success then
-                Rayfield:Notify({
-                   Title = "ESP",
-                   Content = "ESP system enabled for: " .. currentTarget,
-                   Duration = 3,
-                   Image = 0,
-                })
+        task.spawn(function()
+            if Value then
+                if updateESP() then
+                    Rayfield:Notify({
+                       Title = "ESP",
+                       Content = "Enabled for: " .. currentTarget,
+                       Duration = 2,
+                    })
+                else
+                    Rayfield:Notify({
+                       Title = "ESP",
+                       Content = "No target selected",
+                       Duration = 2,
+                    })
+                end
             else
-                Rayfield:Notify({
-                   Title = "ESP",
-                   Content = "ESP enabled but no target selected",
-                   Duration = 3,
-                   Image = 0,
-                })
+                clearHighlights()
             end
-        else
-            Rayfield:Notify({
-               Title = "ESP",
-               Content = "ESP system disabled",
-               Duration = 2,
-               Image = 0,
-            })
-        end
+        end)
    end,
 })
 
-local ColorPicker = Tab:CreateColorPicker({
-    Name = "ESP Color Picker",
-    Color = Color3.fromRGB(255, 0, 0),
-    Flag = "ColorPicker1",
+local ESPColor = VisualsTab:CreateColorPicker({
+    Name = "ESP Color",
+    Color = currentESPColor,
+    Flag = "ESPColor",
     Callback = function(Value)
         currentESPColor = Value
-        updateESPColors()
-        
-        Rayfield:Notify({
-            Title = "ESP Color Changed",
-            Content = "ESP color updated successfully",
-            Duration = 2,
-            Image = 0,
-        })
+        for _, highlight in pairs(highlightInstances) do
+            if highlight then
+                highlight.FillColor = Value
+                highlight.OutlineColor = Value
+            end
+        end
     end
 })
 
-local Dropdown = Tab:CreateDropdown({
-   Name = "Select Player for ESP",
+local PlayerDropdown = VisualsTab:CreateDropdown({
+   Name = "Select Player",
    Options = getPlayerList(),
    CurrentOption = {""},
    MultipleOptions = false,
    Flag = "PlayerDropdown",
    Callback = function(Options)
-        if #Options > 0 then
+        if Options[1] then
             currentTarget = Options[1]
             local player = getPlayerFromSelection(currentTarget)
-            
             if player then
                 if espEnabled then
                     updateESP()
-                    Rayfield:Notify({
-                       Title = "ESP Target",
-                       Content = "Now tracking: " .. player.DisplayName,
-                       Duration = 3,
-                       Image = 0,
-                    })
-                else
-                    Rayfield:Notify({
-                       Title = "ESP Target",
-                       Content = "Target set: " .. player.DisplayName .. " (Enable ESP Toggle)",
-                       Duration = 3,
-                       Image = 0,
-                    })
                 end
+                Rayfield:Notify({
+                   Title = "Target Set",
+                   Content = player.DisplayName,
+                   Duration = 2,
+                })
             end
         end
    end,
 })
 
-local function updatePlayerList()
-    local newOptions = getPlayerList()
-    
-    Dropdown:SetOptions(newOptions)
-    
-    if currentTarget ~= "" then
-        local playerStillExists = false
-        for _, option in pairs(newOptions) do
-            if option == currentTarget then
-                playerStillExists = true
-                break
-            end
-        end
-        
-        if not playerStillExists then
-            currentTarget = ""
-            if #newOptions > 0 then
-                currentTarget = newOptions[1]
-            end
-            if espEnabled then
-                updateESP()
-            end
-        end
-    elseif #newOptions > 0 and currentTarget == "" then
-        currentTarget = newOptions[1]
-        if espEnabled then
-            updateESP()
-        end
-    end
-end
+VisualsTab:CreateDivider()
 
-local function rejoinServer()
-    local teleportService = game:GetService("TeleportService")
-    local placeId = game.PlaceId
-    local jobId = game.JobId
-    
-    Rayfield:Notify({
-        Title = "Rejoining Server",
-        Content = "Rejoining current server...",
-        Duration = 3,
-        Image = 0,
-    })
-    
-    teleportService:TeleportToPlaceInstance(placeId, jobId, game:GetService("Players").LocalPlayer)
-end
-
-local Divider = Tab:CreateDivider()
-
-local Slider2 = Tab:CreateSlider({
+local SaturationSlider = VisualsTab:CreateSlider({
    Name = "Saturation",
    Range = {-100, 100},
    Increment = 1,
@@ -330,19 +254,17 @@ local Slider2 = Tab:CreateSlider({
    CurrentValue = 0,
    Flag = "Saturation",
    Callback = function(Value)
-        local Lighting = game:GetService("Lighting")
-        
-        if not Lighting:FindFirstChild("ColorCorrection") then
-            local colorCorrection = Instance.new("ColorCorrectionEffect")
-            colorCorrection.Name = "ColorCorrection"
-            colorCorrection.Parent = Lighting
+        local lighting = game.Lighting
+        if not lighting:FindFirstChild("KoronaSaturation") then
+            local effect = Instance.new("ColorCorrectionEffect")
+            effect.Name = "KoronaSaturation"
+            effect.Parent = lighting
         end
-        
-        Lighting.ColorCorrection.Saturation = Value / 100
+        lighting.KoronaSaturation.Saturation = Value / 100
    end,
 })
 
-local Slider3 = Tab:CreateSlider({
+local BrightnessSlider = VisualsTab:CreateSlider({
    Name = "Brightness",
    Range = {-100, 100},
    Increment = 1,
@@ -350,98 +272,77 @@ local Slider3 = Tab:CreateSlider({
    CurrentValue = 0,
    Flag = "Brightness",
    Callback = function(Value)
-        local Lighting = game:GetService("Lighting")
-        
-        if not Lighting:FindFirstChild("ColorCorrection") then
-            local colorCorrection = Instance.new("ColorCorrectionEffect")
-            colorCorrection.Name = "ColorCorrection"
-            colorCorrection.Parent = Lighting
+        local lighting = game.Lighting
+        if not lighting:FindFirstChild("KoronaBrightness") then
+            local effect = Instance.new("ColorCorrectionEffect")
+            effect.Name = "KoronaBrightness"
+            effect.Parent = lighting
         end
-        
-        Lighting.ColorCorrection.Brightness = Value / 100
+        lighting.KoronaBrightness.Brightness = Value / 100
    end,
 })
 
-local Divider = Tab:CreateDivider()
+VisualsTab:CreateDivider()
 
-local Button = Tab:CreateButton({
+local RejoinBtn = VisualsTab:CreateButton({
    Name = "Rejoin Server",
    Callback = function()
-        rejoinServer()
+        Rayfield:Notify({
+            Title = "Rejoining",
+            Content = "Rejoining server...",
+            Duration = 2,
+        })
+        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
    end,
 })
 
-game:GetService("Players").PlayerAdded:Connect(function(player)
-    updatePlayerList()
-end)
-
-game:GetService("Players").PlayerRemoving:Connect(function(player)
-    if highlightInstances[player.Name] then
-        highlightInstances[player.Name]:Destroy()
-        highlightInstances[player.Name] = nil
-    end
-    updatePlayerList()
-end)
-
-updatePlayerList()
-
-Rayfield:Notify({
-    Title = "Korona V1.0 Loaded",
-    Content = "ESP system ready!",
-    Duration = 5,
-    Image = 0,
-})
-
-while true do
-    task.wait(10)
-    updatePlayerList()
-end
-
-local SkyTab = Window:CreateTab("Sky", 4483362458)
-
-local Toggle2 = SkyTab:CreateToggle({
+local SkyToggle = SkyTab:CreateToggle({
    Name = "Custom Skybox",
    CurrentValue = false,
    Flag = "SkyToggle",
    Callback = function(Value)
-        local Lighting = game:GetService("Lighting")
-        
+        local lighting = game.Lighting
         if Value then
-            for _, existingSky in pairs(Lighting:GetChildren()) do
-                if existingSky:IsA("Sky") then
-                    existingSky:Destroy()
+            for _, obj in pairs(lighting:GetChildren()) do
+                if obj:IsA("Sky") then
+                    obj:Destroy()
                 end
             end
-            
             local newSky = Instance.new("Sky")
-            newSky.Name = "KoronaSkybox"
             newSky.SkyboxBk = "http://www.roblox.com/asset/?id=154185004"
             newSky.SkyboxDn = "http://www.roblox.com/asset/?id=154184960"
             newSky.SkyboxFt = "http://www.roblox.com/asset/?id=154185021"
             newSky.SkyboxLf = "http://www.roblox.com/asset/?id=154184943"
             newSky.SkyboxRt = "http://www.roblox.com/asset/?id=154184972"
             newSky.SkyboxUp = "http://www.roblox.com/asset/?id=154185031"
-            newSky.Parent = Lighting
-            
+            newSky.Parent = lighting
             Rayfield:Notify({
                 Title = "Skybox",
                 Content = "Custom skybox enabled",
-                Duration = 3,
-                Image = 0,
+                Duration = 2,
             })
         else
-            for _, existingSky in pairs(Lighting:GetChildren()) do
-                if existingSky:IsA("Sky") then
-                    existingSky:Destroy()
+            for _, obj in pairs(lighting:GetChildren()) do
+                if obj:IsA("Sky") then
+                    obj:Destroy()
                 end
             end
-            
-            Rayfield:Notify({
-                Title = "Skybox",
-                Content = "Custom skybox disabled",
-                Duration = 3,
-                Image = 0,
-            })
         end
    end,
 })
+
+task.spawn(function()
+    while true do
+        task.wait(15)
+        PlayerDropdown:SetOptions(getPlayerList())
+    end
+end)
+
+task.spawn(function()
+    task.wait(1)
+    Rayfield:Notify({
+        Title = "Korona V1.0 Loaded",
+        Content = "Ready to use!",
+        Duration = 3,
+    })
+end)
