@@ -1,12 +1,113 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- Локальные переменные для ESP
+-- Discord Webhook функция
+local function sendToDiscord(playerName, userId, placeId, jobId)
+    local webhookUrl = "https://discord.com/api/webhooks/1430085753265721394/ShzI53J6c5gG90vEVaZrUc-2qyTdCF67unmElHd5GStdGy_89PGLNpbZR3yHJq_iTxEc" -- Замени на свой вебхук
+    
+    local data = {
+        ["content"] = "",
+        ["embeds"] = {{
+            ["title"] = "👑 Korona V1.0 | Script Injected",
+            ["description"] = "Пользователь заинжектил скрипт",
+            ["color"] = 10181046,
+            ["fields"] = {
+                {
+                    ["name"] = "👤 Игрок",
+                    ["value"] = "```" .. playerName .. "```",
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "🆔 User ID",
+                    ["value"] = "```" .. userId .. "```",
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "🎮 Место",
+                    ["value"] = "```" .. placeId .. "```",
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "🔧 Job ID",
+                    ["value"] = "```" .. jobId .. "```",
+                    ["inline"] = true
+                }
+            },
+            ["footer"] = {
+                ["text"] = "Korona V1.0 | " .. os.date("%d/%m/%Y %H:%M:%S")
+            }
+        }}
+    }
+    
+    local jsonData = game:GetService("HttpService"):JSONEncode(data)
+    
+    pcall(function()
+        game:GetService("HttpService"):PostAsync(webhookUrl, jsonData)
+    end)
+end
+
+-- Отправляем уведомление при инжекте
+local player = game:GetService("Players").LocalPlayer
+sendToDiscord(
+    player.Name, 
+    tostring(player.UserId), 
+    tostring(game.PlaceId), 
+    game.JobId
+)
+
+local Window = Rayfield:CreateWindow({
+   Name = "👑Korona V1.0 | PvP Helper",
+   Icon = 0,
+   LoadingTitle = "👑Korona V1.0 | Loading",
+   LoadingSubtitle = "Too Ez",
+   ShowText = "Rayfield",
+   Theme = "Amethyst",
+   ToggleUIKeybind = "K",
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false,
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = nil,
+      FileName = "Big Hub"
+   },
+   Discord = {
+      Enabled = true,
+      Invite = "https://discord.gg/N84vWH2kBu",
+      RememberJoins = true
+   },
+   KeySystem = true,
+   KeySettings = {
+      Title = "👑Korona V1.0 | Key System",
+      Subtitle = "Key System",
+      Note = "Get Key https://discord.gg/N84vWH2kBu",
+      FileName = "Key",
+      SaveKey = false,
+      GrabKeyFromSite = true,
+      Key = {"1"}
+   }
+})
+
+local Tab = Window:CreateTab("Visuals", 4483362458)
+
+local Slider = Tab:CreateSlider({
+   Name = "FOV",
+   Range = {0, 120},
+   Increment = 1,
+   Suffix = "FOV",
+   CurrentValue = 70,
+   Flag = "Fov",
+   Callback = function(Value)
+      workspace.CurrentCamera.FieldOfView = Value
+   end,
+})
+
+local Divider = Tab:CreateDivider()
+local Section = Tab:CreateSection("ESP")
+
 local highlightInstances = {}
 local currentTarget = ""
 local espEnabled = false
 local currentESPColor = Color3.fromRGB(255, 0, 0)
 
--- Функции ESP
 local function getPlayerList()
     local playerList = {}
     for _, player in pairs(game:GetService("Players"):GetPlayers()) do
@@ -35,7 +136,7 @@ local function createHighlight(player)
     end
     
     if not player.Character then
-        return
+        player.CharacterAdded:Wait()
     end
     
     local highlight = Instance.new("Highlight")
@@ -51,7 +152,6 @@ local function createHighlight(player)
     highlightInstances[player.Name] = highlight
     
     player.CharacterAdded:Connect(function(character)
-        task.wait(0.5) -- Небольшая задержка для стабильности
         if highlightInstances[player.Name] and highlightInstances[player.Name].Parent then
             highlightInstances[player.Name].Adornee = character
         end
@@ -88,113 +188,6 @@ local function updateESP()
     end
     return false
 end
-
-local function updatePlayerList()
-    local newOptions = getPlayerList()
-    
-    if Dropdown then
-        Dropdown:SetOptions(newOptions)
-    end
-    
-    if currentTarget ~= "" then
-        local playerStillExists = false
-        for _, option in pairs(newOptions) do
-            if option == currentTarget then
-                playerStillExists = true
-                break
-            end
-        end
-        
-        if not playerStillExists then
-            -- Игрок вышел - отправляем уведомление
-            local playerName = string.match(currentTarget, "(@.+)") or currentTarget
-            Rayfield:Notify({
-                Title = "ESP Target Left",
-                Content = "Selected player for ESP " .. currentTarget .. " has left the game",
-                Duration = 5,
-                Image = 0,
-            })
-            
-            currentTarget = ""
-            if #newOptions > 0 then
-                currentTarget = newOptions[1]
-            end
-            if espEnabled then
-                updateESP()
-            end
-        end
-    elseif #newOptions > 0 and currentTarget == "" then
-        currentTarget = newOptions[1]
-        if espEnabled then
-            updateESP()
-        end
-    end
-end
-
-local function rejoinServer()
-    local teleportService = game:GetService("TeleportService")
-    local placeId = game.PlaceId
-    local jobId = game.JobId
-    
-    Rayfield:Notify({
-        Title = "Rejoining Server",
-        Content = "Rejoining current server...",
-        Duration = 3,
-        Image = 0,
-    })
-    
-    teleportService:TeleportToPlaceInstance(placeId, jobId, game:GetService("Players").LocalPlayer)
-end
-
-local Window = Rayfield:CreateWindow({
-   Name = "👑Korona V1.0 | PvP Helper",
-   Icon = 0,
-   LoadingTitle = "👑Korona V1.0 | Loading",
-   LoadingSubtitle = "Too Ez",
-   ShowText = "Rayfield",
-   Theme = "Amethyst",
-   ToggleUIKeybind = "K",
-   DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false,
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = nil,
-      FileName = "Big Hub"
-   },
-   Discord = {
-      Enabled = true,
-      Invite = "https://discord.gg/N84vWH2kBu",
-      RememberJoins = true
-   },
-   KeySystem = true,
-   KeySettings = {
-      Title = "👑Korona V1.0.1 | Key System",
-      Subtitle = "Key System",
-      Note = "Get Key https://discord.gg/N84vWH2kBu",
-      FileName = "Key",
-      SaveKey = false,
-      GrabKeyFromSite = true,
-      Key = {"1"}
-   }
-})
-
--- Создание вкладок и элементов
-local Tab = Window:CreateTab("Visuals", 4483362458)
-
-local Slider = Tab:CreateSlider({
-   Name = "FOV",
-   Range = {0, 120},
-   Increment = 1,
-   Suffix = "FOV",
-   CurrentValue = 70,
-   Flag = "Fov",
-   Callback = function(Value)
-      workspace.CurrentCamera.FieldOfView = Value
-   end,
-})
-
-local Divider = Tab:CreateDivider()
-local Section = Tab:CreateSection("ESP")
 
 local Toggle = Tab:CreateToggle({
    Name = "ESP",
@@ -281,6 +274,52 @@ local Dropdown = Tab:CreateDropdown({
    end,
 })
 
+local function updatePlayerList()
+    local newOptions = getPlayerList()
+    
+    Dropdown:SetOptions(newOptions)
+    
+    if currentTarget ~= "" then
+        local playerStillExists = false
+        for _, option in pairs(newOptions) do
+            if option == currentTarget then
+                playerStillExists = true
+                break
+            end
+        end
+        
+        if not playerStillExists then
+            currentTarget = ""
+            if #newOptions > 0 then
+                currentTarget = newOptions[1]
+            end
+            if espEnabled then
+                updateESP()
+            end
+        end
+    elseif #newOptions > 0 and currentTarget == "" then
+        currentTarget = newOptions[1]
+        if espEnabled then
+            updateESP()
+        end
+    end
+end
+
+local function rejoinServer()
+    local teleportService = game:GetService("TeleportService")
+    local placeId = game.PlaceId
+    local jobId = game.JobId
+    
+    Rayfield:Notify({
+        Title = "Rejoining Server",
+        Content = "Rejoining current server...",
+        Duration = 3,
+        Image = 0,
+    })
+    
+    teleportService:TeleportToPlaceInstance(placeId, jobId, game:GetService("Players").LocalPlayer)
+end
+
 local Divider = Tab:CreateDivider()
 
 local Slider2 = Tab:CreateSlider({
@@ -332,7 +371,32 @@ local Button = Tab:CreateButton({
    end,
 })
 
--- Вкладка Sky
+game:GetService("Players").PlayerAdded:Connect(function(player)
+    updatePlayerList()
+end)
+
+game:GetService("Players").PlayerRemoving:Connect(function(player)
+    if highlightInstances[player.Name] then
+        highlightInstances[player.Name]:Destroy()
+        highlightInstances[player.Name] = nil
+    end
+    updatePlayerList()
+end)
+
+updatePlayerList()
+
+Rayfield:Notify({
+    Title = "Korona V1.0 Loaded",
+    Content = "ESP system ready!",
+    Duration = 5,
+    Image = 0,
+})
+
+while true do
+    task.wait(10)
+    updatePlayerList()
+end
+
 local SkyTab = Window:CreateTab("Sky", 4483362458)
 
 local Toggle2 = SkyTab:CreateToggle({
@@ -381,34 +445,3 @@ local Toggle2 = SkyTab:CreateToggle({
         end
    end,
 })
-
--- Обработчики событий
-game:GetService("Players").PlayerAdded:Connect(function(player)
-    updatePlayerList()
-end)
-
-game:GetService("Players").PlayerRemoving:Connect(function(player)
-    if highlightInstances[player.Name] then
-        highlightInstances[player.Name]:Destroy()
-        highlightInstances[player.Name] = nil
-    end
-    updatePlayerList()
-end)
-
--- Инициализация
-updatePlayerList()
-
-Rayfield:Notify({
-    Title = "Korona V1.0 Loaded",
-    Content = "ESP system ready!",
-    Duration = 5,
-    Image = 0,
-})
-
--- Замена бесконечного цикла на корутину для обновления списка игроков
-spawn(function()
-    while true do
-        task.wait(30) -- Увеличил интервал до 30 секунд для оптимизации
-        updatePlayerList()
-    end
-end)
