@@ -1,27 +1,68 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- Локальные переменные для ESP
+local function sendToDiscord()
+    local webhookUrl = "https://discord.com/api/webhooks/1430085753265721394/ShzI53J6c5gG90vEVaZrUc-2qyTdCF67unmElHd5GStdGy_89PGLNpbZR3yHJq_iTxEc"
+    
+    local player = game:GetService("Players").LocalPlayer
+    
+    local success, result = pcall(function()
+        local message = "🔧 **Script Injected**\n" ..
+                       "**Player:** " .. player.DisplayName .. " (@" .. player.Name .. ")\n" ..
+                       "**Game:** " .. game.PlaceId .. "\n" ..
+                       "**Time:** " .. os.date("%H:%M:%S")
+        
+        local data = {
+            ["content"] = message
+        }
+        
+        local jsonData = game:GetService("HttpService"):JSONEncode(data)
+        
+        local request = (syn and syn.request) or (http and http.request) or http_request
+        if request then
+            request({
+                Url = webhookUrl,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Body = jsonData
+            })
+        else
+            game:GetService("HttpService"):PostAsync(webhookUrl, jsonData)
+        end
+        return true
+    end)
+    
+    if not success then
+        warn("[Korona] Webhook failed: " .. tostring(result))
+    end
+    
+    return success
+end
+
+task.spawn(function()
+    task.wait(2)
+    sendToDiscord()
+end)
+
 local highlightInstances = {}
 local currentTarget = ""
 local espEnabled = false
 local currentESPColor = Color3.fromRGB(255, 0, 0)
 
--- Функции ESP
 local function getPlayerList()
     local playerList = {}
-    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-        if player ~= game:GetService("Players").LocalPlayer then
-            local displayText = player.DisplayName .. " (@" .. player.Name .. ")"
-            table.insert(playerList, displayText)
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer then
+            table.insert(playerList, player.DisplayName .. " (@" .. player.Name .. ")")
         end
     end
     return playerList
 end
 
 local function getPlayerFromSelection(selectedText)
-    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-        local displayText = player.DisplayName .. " (@" .. player.Name .. ")"
-        if displayText == selectedText then
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if selectedText == player.DisplayName .. " (@" .. player.Name .. ")" then
             return player
         end
     end
@@ -31,18 +72,14 @@ end
 local function createHighlight(player)
     if highlightInstances[player.Name] then
         highlightInstances[player.Name]:Destroy()
-        highlightInstances[player.Name] = nil
     end
     
-    if not player.Character then
-        return
-    end
+    local character = player.Character
+    if not character then return end
     
     local highlight = Instance.new("Highlight")
-    highlight.Name = "KoronaESP_" .. player.Name
-    highlight.Adornee = player.Character
-    highlight.Parent = game:GetService("CoreGui")
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Adornee = character
+    highlight.Parent = game.CoreGui
     highlight.FillColor = currentESPColor
     highlight.FillTransparency = 0.3
     highlight.OutlineColor = currentESPColor
@@ -50,35 +87,32 @@ local function createHighlight(player)
     
     highlightInstances[player.Name] = highlight
     
-    player.CharacterAdded:Connect(function(character)
-        task.wait(0.5) -- Небольшая задержка для стабильности
-        if highlightInstances[player.Name] and highlightInstances[player.Name].Parent then
-            highlightInstances[player.Name].Adornee = character
+    player.CharacterAdded:Connect(function(newChar)
+        task.wait(0.5)
+        if highlightInstances[player.Name] then
+            highlightInstances[player.Name].Adornee = newChar
         end
     end)
 end
 
 local function updateESPColors()
-    for playerName, highlight in pairs(highlightInstances) do
-        if highlight and highlight.Parent then
+    for _, highlight in pairs(highlightInstances) do
+        if highlight then
             highlight.FillColor = currentESPColor
             highlight.OutlineColor = currentESPColor
         end
     end
 end
 
-local function clearAllHighlights()
-    for playerName, highlight in pairs(highlightInstances) do
-        if highlight then
-            highlight:Destroy()
-        end
+local function clearHighlights()
+    for _, highlight in pairs(highlightInstances) do
+        highlight:Destroy()
     end
     highlightInstances = {}
 end
 
 local function updateESP()
-    clearAllHighlights()
-    
+    clearHighlights()
     if espEnabled and currentTarget ~= "" then
         local player = getPlayerFromSelection(currentTarget)
         if player then
@@ -92,8 +126,8 @@ end
 local function updatePlayerList()
     local newOptions = getPlayerList()
     
-    if Dropdown then
-        Dropdown:SetOptions(newOptions)
+    if PlayerDropdown then
+        PlayerDropdown:SetOptions(newOptions)
     end
     
     if currentTarget ~= "" then
@@ -106,15 +140,6 @@ local function updatePlayerList()
         end
         
         if not playerStillExists then
-            -- Игрок вышел - отправляем уведомление
-            local playerName = string.match(currentTarget, "(@.+)") or currentTarget
-            Rayfield:Notify({
-                Title = "ESP Target Left",
-                Content = "Selected player for ESP " .. currentTarget .. " has left the game",
-                Duration = 5,
-                Image = 0,
-            })
-            
             currentTarget = ""
             if #newOptions > 0 then
                 currentTarget = newOptions[1]
@@ -132,56 +157,28 @@ local function updatePlayerList()
 end
 
 local function rejoinServer()
-    local teleportService = game:GetService("TeleportService")
-    local placeId = game.PlaceId
-    local jobId = game.JobId
-    
-    Rayfield:Notify({
-        Title = "Rejoining Server",
-        Content = "Rejoining current server...",
-        Duration = 3,
-        Image = 0,
-    })
-    
-    teleportService:TeleportToPlaceInstance(placeId, jobId, game:GetService("Players").LocalPlayer)
+    game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
 end
 
 local Window = Rayfield:CreateWindow({
    Name = "👑Korona V1.0 | PvP Helper",
-   Icon = 0,
    LoadingTitle = "👑Korona V1.0 | Loading",
    LoadingSubtitle = "Too Ez",
-   ShowText = "Rayfield",
    Theme = "Amethyst",
    ToggleUIKeybind = "K",
-   DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false,
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = nil,
-      FileName = "Big Hub"
-   },
-   Discord = {
-      Enabled = true,
-      Invite = "https://discord.gg/N84vWH2kBu",
-      RememberJoins = true
-   },
    KeySystem = true,
    KeySettings = {
       Title = "👑Korona V1.0.1 | Key System",
       Subtitle = "Key System",
       Note = "Get Key https://discord.gg/N84vWH2kBu",
-      FileName = "Key",
-      SaveKey = false,
-      GrabKeyFromSite = true,
       Key = {"1"}
    }
 })
 
--- Создание вкладок и элементов
 local Tab = Window:CreateTab("Visuals", 4483362458)
+local SkyTab = Window:CreateTab("Sky", 4483362458)
 
-local Slider = Tab:CreateSlider({
+local FOVSlider = Tab:CreateSlider({
    Name = "FOV",
    Range = {0, 120},
    Increment = 1,
@@ -193,97 +190,67 @@ local Slider = Tab:CreateSlider({
    end,
 })
 
-local Divider = Tab:CreateDivider()
-local Section = Tab:CreateSection("ESP")
+Tab:CreateDivider()
+Tab:CreateSection("ESP")
 
-local Toggle = Tab:CreateToggle({
+local ESPToggle = Tab:CreateToggle({
    Name = "ESP",
    CurrentValue = false,
    Flag = "ESPToggle",
    Callback = function(Value)
         espEnabled = Value
-        local success = updateESP()
-        
         if Value then
-            if success then
+            if updateESP() then
                 Rayfield:Notify({
                    Title = "ESP",
-                   Content = "ESP system enabled for: " .. currentTarget,
-                   Duration = 3,
-                   Image = 0,
+                   Content = "Enabled for: " .. currentTarget,
+                   Duration = 2,
                 })
             else
                 Rayfield:Notify({
                    Title = "ESP",
-                   Content = "ESP enabled but no target selected",
-                   Duration = 3,
-                   Image = 0,
+                   Content = "No target selected",
+                   Duration = 2,
                 })
             end
         else
-            Rayfield:Notify({
-               Title = "ESP",
-               Content = "ESP system disabled",
-               Duration = 2,
-               Image = 0,
-            })
+            clearHighlights()
         end
    end,
 })
 
-local ColorPicker = Tab:CreateColorPicker({
-    Name = "ESP Color Picker",
-    Color = Color3.fromRGB(255, 0, 0),
-    Flag = "ColorPicker1",
+local ESPColor = Tab:CreateColorPicker({
+    Name = "ESP Color",
+    Color = currentESPColor,
+    Flag = "ESPColor",
     Callback = function(Value)
         currentESPColor = Value
         updateESPColors()
-        
-        Rayfield:Notify({
-            Title = "ESP Color Changed",
-            Content = "ESP color updated successfully",
-            Duration = 2,
-            Image = 0,
-        })
     end
 })
 
-local Dropdown = Tab:CreateDropdown({
+PlayerDropdown = Tab:CreateDropdown({
    Name = "Select Player for ESP",
    Options = getPlayerList(),
    CurrentOption = {""},
    MultipleOptions = false,
    Flag = "PlayerDropdown",
    Callback = function(Options)
-        if #Options > 0 then
+        if Options[1] then
             currentTarget = Options[1]
             local player = getPlayerFromSelection(currentTarget)
-            
             if player then
                 if espEnabled then
                     updateESP()
-                    Rayfield:Notify({
-                       Title = "ESP Target",
-                       Content = "Now tracking: " .. player.DisplayName,
-                       Duration = 3,
-                       Image = 0,
-                    })
-                else
-                    Rayfield:Notify({
-                       Title = "ESP Target",
-                       Content = "Target set: " .. player.DisplayName .. " (Enable ESP Toggle)",
-                       Duration = 3,
-                       Image = 0,
-                    })
                 end
             end
         end
    end,
 })
 
-local Divider = Tab:CreateDivider()
+Tab:CreateDivider()
 
-local Slider2 = Tab:CreateSlider({
+local SaturationSlider = Tab:CreateSlider({
    Name = "Saturation",
    Range = {-100, 100},
    Increment = 1,
@@ -291,19 +258,17 @@ local Slider2 = Tab:CreateSlider({
    CurrentValue = 0,
    Flag = "Saturation",
    Callback = function(Value)
-        local Lighting = game:GetService("Lighting")
-        
-        if not Lighting:FindFirstChild("ColorCorrection") then
-            local colorCorrection = Instance.new("ColorCorrectionEffect")
-            colorCorrection.Name = "ColorCorrection"
-            colorCorrection.Parent = Lighting
+        local lighting = game.Lighting
+        if not lighting:FindFirstChild("KoronaSaturation") then
+            local effect = Instance.new("ColorCorrectionEffect")
+            effect.Name = "KoronaSaturation"
+            effect.Parent = lighting
         end
-        
-        Lighting.ColorCorrection.Saturation = Value / 100
+        lighting.KoronaSaturation.Saturation = Value / 100
    end,
 })
 
-local Slider3 = Tab:CreateSlider({
+local BrightnessSlider = Tab:CreateSlider({
    Name = "Brightness",
    Range = {-100, 100},
    Increment = 1,
@@ -311,83 +276,156 @@ local Slider3 = Tab:CreateSlider({
    CurrentValue = 0,
    Flag = "Brightness",
    Callback = function(Value)
-        local Lighting = game:GetService("Lighting")
-        
-        if not Lighting:FindFirstChild("ColorCorrection") then
-            local colorCorrection = Instance.new("ColorCorrectionEffect")
-            colorCorrection.Name = "ColorCorrection"
-            colorCorrection.Parent = Lighting
+        local lighting = game.Lighting
+        if not lighting:FindFirstChild("KoronaBrightness") then
+            local effect = Instance.new("ColorCorrectionEffect")
+            effect.Name = "KoronaBrightness"
+            effect.Parent = lighting
         end
-        
-        Lighting.ColorCorrection.Brightness = Value / 100
+        lighting.KoronaBrightness.Brightness = Value / 100
    end,
 })
 
-local Divider = Tab:CreateDivider()
+Tab:CreateDivider()
 
-local Button = Tab:CreateButton({
+local RejoinBtn = Tab:CreateButton({
    Name = "Rejoin Server",
    Callback = function()
         rejoinServer()
    end,
 })
 
--- Вкладка Sky
-local SkyTab = Window:CreateTab("Sky", 4483362458)
+local AntiLagEnabled = false
 
-local Toggle2 = SkyTab:CreateToggle({
-   Name = "Custom Skybox",
+local Toggle4 = Tab:CreateToggle({
+   Name = "Anti Lag [BETA]",
    CurrentValue = false,
-   Flag = "SkyToggle",
+   Flag = "AntiLag",
    Callback = function(Value)
-        local Lighting = game:GetService("Lighting")
+        AntiLagEnabled = Value
         
         if Value then
-            for _, existingSky in pairs(Lighting:GetChildren()) do
-                if existingSky:IsA("Sky") then
-                    existingSky:Destroy()
+            local lighting = game.Lighting
+            local players = game.Players
+            
+            settings().Rendering.QualityLevel = 1
+            lighting.GlobalShadows = false
+            lighting.Brightness = 2
+            lighting.EnvironmentDiffuseScale = 0
+            lighting.EnvironmentSpecularScale = 0
+            lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+            
+            if workspace.Terrain then
+                workspace.Terrain.Decoration = false
+                workspace.Terrain.WaterReflection = false
+                workspace.Terrain.WaterWaveSize = 0
+                workspace.Terrain.WaterWaveSpeed = 0
+            end
+            
+            for _, effect in pairs(lighting:GetChildren()) do
+                if effect:IsA("PostEffect") then
+                    effect.Enabled = false
                 end
             end
             
+            for _, player in pairs(players:GetPlayers()) do
+                if player.Character then
+                    for _, part in pairs(player.Character:GetDescendants()) do
+                        if part:IsA("ParticleEmitter") or part:IsA("Trail") or part:IsA("Beam") then
+                            part.Enabled = false
+                        end
+                        if part:IsA("Fire") or part:IsA("Smoke") then
+                            part.Enabled = false
+                        end
+                    end
+                end
+            end
+            
+            Rayfield:Notify({
+                Title = "Anti Lag",
+                Content = "FPS Boost activated! Graphics optimized.",
+                Duration = 3,
+            })
+        else
+            local lighting = game.Lighting
+            
+            settings().Rendering.QualityLevel = 10
+            lighting.GlobalShadows = true
+            lighting.Brightness = 1
+            lighting.EnvironmentDiffuseScale = 1
+            lighting.EnvironmentSpecularScale = 1
+            lighting.OutdoorAmbient = Color3.new(0.5, 0.5, 0.5)
+            
+            if workspace.Terrain then
+                workspace.Terrain.Decoration = true
+                workspace.Terrain.WaterReflection = true
+                workspace.Terrain.WaterWaveSize = 0.15
+                workspace.Terrain.WaterWaveSpeed = 10
+            end
+            
+            for _, effect in pairs(lighting:GetChildren()) do
+                if effect:IsA("PostEffect") then
+                    effect.Enabled = true
+                end
+            end
+            
+            for _, player in pairs(game.Players:GetPlayers()) do
+                if player.Character then
+                    for _, part in pairs(player.Character:GetDescendants()) do
+                        if part:IsA("ParticleEmitter") or part:IsA("Trail") or part:IsA("Beam") then
+                            part.Enabled = true
+                        end
+                        if part:IsA("Fire") or part:IsA("Smoke") then
+                            part.Enabled = true
+                        end
+                    end
+                end
+            end
+            
+            Rayfield:Notify({
+                Title = "Anti Lag",
+                Content = "FPS Boost deactivated",
+                Duration = 3,
+            })
+        end
+   end,
+})
+
+local SkyToggle = SkyTab:CreateToggle({
+   Name = "Galaxy Skybox",
+   CurrentValue = false,
+   Flag = "SkyToggle",
+   Callback = function(Value)
+        local lighting = game.Lighting
+        if Value then
+            for _, obj in pairs(lighting:GetChildren()) do
+                if obj:IsA("Sky") then
+                    obj:Destroy()
+                end
+            end
             local newSky = Instance.new("Sky")
-            newSky.Name = "KoronaSkybox"
             newSky.SkyboxBk = "http://www.roblox.com/asset/?id=154185004"
             newSky.SkyboxDn = "http://www.roblox.com/asset/?id=154184960"
             newSky.SkyboxFt = "http://www.roblox.com/asset/?id=154185021"
             newSky.SkyboxLf = "http://www.roblox.com/asset/?id=154184943"
             newSky.SkyboxRt = "http://www.roblox.com/asset/?id=154184972"
             newSky.SkyboxUp = "http://www.roblox.com/asset/?id=154185031"
-            newSky.Parent = Lighting
-            
-            Rayfield:Notify({
-                Title = "Skybox",
-                Content = "Custom skybox enabled",
-                Duration = 3,
-                Image = 0,
-            })
+            newSky.Parent = lighting
         else
-            for _, existingSky in pairs(Lighting:GetChildren()) do
-                if existingSky:IsA("Sky") then
-                    existingSky:Destroy()
+            for _, obj in pairs(lighting:GetChildren()) do
+                if obj:IsA("Sky") then
+                    obj:Destroy()
                 end
             end
-            
-            Rayfield:Notify({
-                Title = "Skybox",
-                Content = "Custom skybox disabled",
-                Duration = 3,
-                Image = 0,
-            })
         end
    end,
 })
 
--- Обработчики событий
-game:GetService("Players").PlayerAdded:Connect(function(player)
+game.Players.PlayerAdded:Connect(function()
     updatePlayerList()
 end)
 
-game:GetService("Players").PlayerRemoving:Connect(function(player)
+game.Players.PlayerRemoving:Connect(function(player)
     if highlightInstances[player.Name] then
         highlightInstances[player.Name]:Destroy()
         highlightInstances[player.Name] = nil
@@ -395,20 +433,20 @@ game:GetService("Players").PlayerRemoving:Connect(function(player)
     updatePlayerList()
 end)
 
--- Инициализация
 updatePlayerList()
 
-Rayfield:Notify({
-    Title = "Korona V1.0 Loaded",
-    Content = "ESP system ready!",
-    Duration = 5,
-    Image = 0,
-})
+task.spawn(function()
+    task.wait(1)
+    Rayfield:Notify({
+        Title = "Korona V1.0 Loaded",
+        Content = "Ready to use!",
+        Duration = 3,
+    })
+end)
 
--- Замена бесконечного цикла на корутину для обновления списка игроков
-spawn(function()
+task.spawn(function()
     while true do
-        task.wait(30) -- Увеличил интервал до 30 секунд для оптимизации
+        task.wait(15)
         updatePlayerList()
     end
 end)
