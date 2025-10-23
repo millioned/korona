@@ -1,5 +1,23 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- Простая функция для получения ключа
+local function getKey()
+    -- Пробуем получить ключ из Pastebin
+    local success, result = pcall(function()
+        local response = game:HttpGet("https://pastebin.com/raw/wXfN3vh6") -- Замени на свой Pastebin ID
+        return string.gsub(response, "%s+", "") -- убираем пробелы
+    end)
+    
+    if success and result and result ~= "" then
+        return result
+    else
+        -- Fallback ключ
+        return "KoronaV1.0.2"
+    end
+end
+
+local correctKey = getKey()
+
 -- Функция для загрузки Infinite Yield
 local function loadInfiniteYield()
     local success, result = pcall(function()
@@ -26,7 +44,7 @@ local function setupChatListener()
     local players = game:GetService("Players")
     local localPlayer = players.LocalPlayer
     
-    -- Метод 1: Через TextChatService (новые версии Roblox)
+    -- Метод 1: Через TextChatService
     pcall(function()
         local TextChatService = game:GetService("TextChatService")
         if TextChatService then
@@ -43,84 +61,70 @@ local function setupChatListener()
     
     -- Метод 2: Через старую систему чата
     pcall(function()
-        local function onChatMessage(message, speaker)
-            if speaker == localPlayer.Name then
-                local messageText = string.lower(message)
-                if messageText == "!iy" then
-                    loadInfiniteYield()
-                end
-            end
-        end
-        
         if game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents") then
             local chatEvents = game:GetService("ReplicatedStorage"):WaitForChild("DefaultChatSystemChatEvents")
             if chatEvents:FindFirstChild("OnMessageDoneFiltering") then
                 chatEvents.OnMessageDoneFiltering.OnClientEvent:Connect(function(messageData)
                     if messageData.FromSpeaker == localPlayer.Name then
-                        onChatMessage(messageData.Message, messageData.FromSpeaker)
+                        local messageText = string.lower(messageData.Message)
+                        if messageText == "!iy" then
+                            loadInfiniteYield()
+                        end
                     end
                 end)
             end
+        end
+    end)
+end
+
+-- Переменные для кейбиндов
+local chatKeybindEnabled = false
+local chatKeybind = ""
+local chatText = ""
+local keybindConnection
+
+-- Функция для отправки сообщения в чат
+local function sendChatMessage(message)
+    -- Метод 1: Через TextChatService
+    pcall(function()
+        local TextChatService = game:GetService("TextChatService")
+        if TextChatService then
+            TextChatService.TextChannels.RBXGeneral:SendAsync(message)
         end
     end)
     
-    -- Метод 3: Перехват ввода в чат
+    -- Метод 2: Через старую систему чата
     pcall(function()
-        local function checkChatBar()
-            local success, result = pcall(function()
-                local chatBar
-                
-                if localPlayer.PlayerGui:FindFirstChild("Chat") then
-                    local chatGui = localPlayer.PlayerGui.Chat
-                    if chatGui:FindFirstChild("Frame") then
-                        local frame = chatGui.Frame
-                        if frame:FindFirstChild("ChatBarParentFrame") then
-                            local parentFrame = frame.ChatBarParentFrame
-                            if parentFrame:FindFirstChild("Frame") then
-                                local innerFrame = parentFrame.Frame
-                                if innerFrame:FindFirstChild("BoxFrame") then
-                                    local boxFrame = innerFrame.BoxFrame
-                                    if boxFrame:FindFirstChild("Frame") then
-                                        local textFrame = boxFrame.Frame
-                                        chatBar = textFrame:FindFirstChild("ChatBar") or textFrame:FindFirstChild("TextBox")
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-                
-                return chatBar
-            end)
-            
-            if success and result then
-                result:GetPropertyChangedSignal("Text"):Connect(function()
-                    local text = string.lower(result.Text)
-                    if text == "!iy" then
-                        loadInfiniteYield()
-                        result.Text = ""
-                    end
-                end)
-                return true
-            end
-            return false
-        end
-        
-        local attempts = 0
-        local maxAttempts = 10
-        
-        local function attemptChatBar()
-            if attempts < maxAttempts then
-                attempts += 1
-                if not checkChatBar() then
-                    task.wait(1)
-                    attemptChatBar()
-                end
+        if game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents") then
+            local chatEvents = game:GetService("ReplicatedStorage"):WaitForChild("DefaultChatSystemChatEvents")
+            if chatEvents:FindFirstChild("SayMessageRequest") then
+                chatEvents.SayMessageRequest:FireServer(message, "All")
             end
         end
-        
-        attemptChatBar()
     end)
+end
+
+-- Функция для настройки кейбинда
+local function setupChatKeybind()
+    if keybindConnection then
+        keybindConnection:Disconnect()
+        keybindConnection = nil
+    end
+    
+    if chatKeybindEnabled and chatKeybind ~= "" and chatText ~= "" then
+        keybindConnection = game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            
+            if input.KeyCode == Enum.KeyCode[chatKeybind] then
+                sendChatMessage(chatText)
+                Rayfield:Notify({
+                    Title = "Chat Keybind",
+                    Content = "Message sent: " .. chatText,
+                    Duration = 2,
+                })
+            end
+        end)
+    end
 end
 
 local function sendToDiscord()
@@ -163,16 +167,33 @@ local function sendToDiscord()
     return success
 end
 
-task.spawn(function()
-    task.wait(2)
-    sendToDiscord()
-    setupChatListener() -- Запускаем слушатель чата
-end)
+-- Создаем основное окно
+local Window = Rayfield:CreateWindow({
+   Name = "👑Korona V1.0.2 | PvP Helper",
+   LoadingTitle = "👑Korona V1.0.2 | Loading",
+   LoadingSubtitle = "Too Ez",
+   Theme = "Amethyst",
+   ToggleUIKeybind = "K",
+   KeySystem = true,
+   KeySettings = {
+      Title = "👑Korona V1.0.2 | Key System",
+      Subtitle = "Key System",
+      Note = "Join Discord for key: discord.gg/p3tCxFeRPB",
+      Key = {correctKey}
+   }
+})
 
+-- Если ключ верный, загружаем интерфейс
+local Tab = Window:CreateTab("Visuals")
+local SkyTab = Window:CreateTab("Sky")
+local KeybindsTab = Window:CreateTab("Keybinds")
+
+-- Переменные для ESP
 local highlightInstances = {}
 local currentTarget = ""
 local espEnabled = false
 local currentESPColor = Color3.fromRGB(255, 0, 0)
+local PlayerDropdown
 
 local function getPlayerList()
     local playerList = {}
@@ -280,28 +301,7 @@ local function updatePlayerList()
     end
 end
 
-local function rejoinServer()
-    game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
-end
-
-local Window = Rayfield:CreateWindow({
-   Name = "👑Korona V1.0.2 | PvP Helper",
-   LoadingTitle = "👑Korona V1.0.2 | Loading",
-   LoadingSubtitle = "Too Ez",
-   Theme = "Amethyst",
-   ToggleUIKeybind = "K",
-   KeySystem = true,
-   KeySettings = {
-      Title = "👑Korona V1.0.1 | Key System",
-      Subtitle = "Key System",
-      Note = "Get Key https://discord.gg/p3tCxFeRPB",
-      Key = {"KoronaV1.0.2"}
-   }
-})
-
-local Tab = Window:CreateTab("Visuals", 4483362458)
-local SkyTab = Window:CreateTab("Sky", 4483362458)
-
+-- Визуальные элементы
 local FOVSlider = Tab:CreateSlider({
    Name = "FOV",
    Range = {0, 120},
@@ -415,7 +415,7 @@ Tab:CreateDivider()
 local RejoinBtn = Tab:CreateButton({
    Name = "Rejoin Server",
    Callback = function()
-        rejoinServer()
+        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
    end,
 })
 
@@ -498,6 +498,7 @@ local Toggle4 = Tab:CreateToggle({
    end,
 })
 
+-- Sky Tab
 local SkyToggle = SkyTab:CreateToggle({
    Name = "Galaxy Skybox",
    CurrentValue = false,
@@ -528,6 +529,107 @@ local SkyToggle = SkyTab:CreateToggle({
    end,
 })
 
+-- Кейбинды для чата
+local Section = KeybindsTab:CreateSection("Chat Keybinds")
+
+local ToggleChatKB = KeybindsTab:CreateToggle({
+   Name = "Chat Keybind",
+   CurrentValue = false,
+   Flag = "ChatKeybindToggle",
+   Callback = function(Value)
+        chatKeybindEnabled = Value
+        setupChatKeybind()
+        
+        if Value then
+            Rayfield:Notify({
+                Title = "Chat Keybind",
+                Content = "Chat keybind enabled!",
+                Duration = 2,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Chat Keybind",
+                Content = "Chat keybind disabled",
+                Duration = 2,
+            })
+        end
+   end,
+})
+
+local InputKeybinds = KeybindsTab:CreateInput({
+   Name = "Bind",
+   CurrentValue = "",
+   PlaceholderText = "Input Bind (e.g., F, G, H)",
+   RemoveTextAfterFocusLost = false,
+   Flag = "ChatKeybindKey",
+   Callback = function(Text)
+        chatKeybind = Text
+        setupChatKeybind()
+        
+        if Text ~= "" then
+            Rayfield:Notify({
+                Title = "Chat Keybind",
+                Content = "Keybind set to: " .. Text,
+                Duration = 2,
+            })
+        end
+   end,
+})
+
+local InputChat = KeybindsTab:CreateInput({
+   Name = "Text",
+   CurrentValue = "",
+   PlaceholderText = "Input Text to send",
+   RemoveTextAfterFocusLost = false,
+   Flag = "ChatKeybindText",
+   Callback = function(Text)
+        chatText = Text
+        
+        if Text ~= "" then
+            Rayfield:Notify({
+                Title = "Chat Keybind",
+                Content = "Message set to: " .. Text,
+                Duration = 2,
+            })
+        end
+   end,
+})
+
+KeybindsTab:CreateButton({
+   Name = "Test Keybind",
+   Callback = function()
+        if chatText ~= "" then
+            sendChatMessage(chatText)
+            Rayfield:Notify({
+                Title = "Test",
+                Content = "Message sent: " .. chatText,
+                Duration = 3,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Error",
+                Content = "No text set for keybind",
+                Duration = 3,
+            })
+        end
+   end,
+})
+
+-- Запускаем все функции
+task.spawn(function()
+    task.wait(2)
+    sendToDiscord()
+    setupChatListener()
+    updatePlayerList()
+    
+    Rayfield:Notify({
+        Title = "Korona V1.0.2 Loaded",
+        Content = "Too Ez",
+        Duration = 5,
+    })
+end)
+
+-- Обновляем список игроков
 game.Players.PlayerAdded:Connect(function()
     updatePlayerList()
 end)
@@ -540,17 +642,7 @@ game.Players.PlayerRemoving:Connect(function(player)
     updatePlayerList()
 end)
 
-updatePlayerList()
-
-task.spawn(function()
-    task.wait(1)
-    Rayfield:Notify({
-        Title = "Korona V1.0.2 Loaded",
-        Content = "Too Ez",
-        Duration = 5,
-    })
-end)
-
+-- Периодическое обновление списка игроков
 task.spawn(function()
     while true do
         task.wait(15)
