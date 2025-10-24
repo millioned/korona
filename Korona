@@ -1,20 +1,24 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- Простая функция для получения ключа
 local function getKey()
+    -- Пробуем получить ключ из Pastebin
     local success, result = pcall(function()
-        local response = game:HttpGet("https://pastebin.com/raw/wXfN3vh6")
-        return string.gsub(response, "%s+", "")
+        local response = game:HttpGet("https://pastebin.com/raw/wXfN3vh6") -- Замени на свой Pastebin ID
+        return string.gsub(response, "%s+", "") -- убираем пробелы
     end)
     
     if success and result and result ~= "" then
         return result
     else
+        -- Fallback ключ
         return "KoronaV1.0.2"
     end
 end
 
 local correctKey = getKey()
 
+-- Функция для загрузки Infinite Yield
 local function loadInfiniteYield()
     local success, result = pcall(function()
         loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
@@ -35,10 +39,12 @@ local function loadInfiniteYield()
     end
 end
 
+-- Функция для обработки чата
 local function setupChatListener()
     local players = game:GetService("Players")
     local localPlayer = players.LocalPlayer
     
+    -- Метод 1: Через TextChatService
     pcall(function()
         local TextChatService = game:GetService("TextChatService")
         if TextChatService then
@@ -53,6 +59,7 @@ local function setupChatListener()
         end
     end)
     
+    -- Метод 2: Через старую систему чата
     pcall(function()
         if game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents") then
             local chatEvents = game:GetService("ReplicatedStorage"):WaitForChild("DefaultChatSystemChatEvents")
@@ -70,19 +77,24 @@ local function setupChatListener()
     end)
 end
 
+-- Переменные для кейбиндов
 local chatKeybindEnabled = false
 local chatKeybind = ""
 local chatText = ""
 local keybindConnection
 
+-- Переменные для неба
 local originalSkyProperties = {}
 local whiteSkyEnabled = false
 
+-- Функция для преобразования строки в KeyCode
 local function stringToKeyCode(keyString)
     if keyString == "" then return nil end
     
+    -- Убираем пробелы и делаем первую букву заглавной
     local formattedKey = keyString:gsub("%s+", ""):gsub("^%l", string.upper)
     
+    -- Пробуем найти соответствующий KeyCode
     local success, keyCode = pcall(function()
         return Enum.KeyCode[formattedKey]
     end)
@@ -95,7 +107,9 @@ local function stringToKeyCode(keyString)
     end
 end
 
+-- Функция для отправки сообщения в чат
 local function sendChatMessage(message)
+    -- Метод 1: Через TextChatService
     pcall(function()
         local TextChatService = game:GetService("TextChatService")
         if TextChatService then
@@ -103,6 +117,7 @@ local function sendChatMessage(message)
         end
     end)
     
+    -- Метод 2: Через старую систему чата
     pcall(function()
         if game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents") then
             local chatEvents = game:GetService("ReplicatedStorage"):WaitForChild("DefaultChatSystemChatEvents")
@@ -113,6 +128,7 @@ local function sendChatMessage(message)
     end)
 end
 
+-- Функция для настройки кейбинда
 local function setupChatKeybind()
     if keybindConnection then
         keybindConnection:Disconnect()
@@ -151,10 +167,12 @@ local function setupChatKeybind()
     end
 end
 
+-- Функция для белого неба
 local function setWhiteSkybox(enabled)
     local lighting = game.Lighting
     
     if enabled then
+        -- Сохраняем оригинальные свойства если еще не сохранили
         if not originalSkyProperties.skybox then
             originalSkyProperties.skybox = {}
             originalSkyProperties.atmosphere = {}
@@ -167,6 +185,7 @@ local function setWhiteSkybox(enabled)
                 GlobalShadows = lighting.GlobalShadows
             }
             
+            -- Сохраняем текущее небо
             for _, obj in pairs(lighting:GetChildren()) do
                 if obj:IsA("Sky") then
                     originalSkyProperties.skybox.obj = obj:Clone()
@@ -174,6 +193,7 @@ local function setWhiteSkybox(enabled)
                 end
             end
             
+            -- Сохраняем атмосферу если есть
             for _, obj in pairs(lighting:GetChildren()) do
                 if obj:IsA("Atmosphere") then
                     originalSkyProperties.atmosphere.obj = obj:Clone()
@@ -182,19 +202,24 @@ local function setWhiteSkybox(enabled)
             end
         end
         
+        -- Удаляем все существующие небеса и атмосферы
         for _, obj in pairs(lighting:GetChildren()) do
             if obj:IsA("Sky") or obj:IsA("Atmosphere") then
                 obj:Destroy()
             end
         end
         
+        -- Создаем чистое белое небо
         local whiteSky = Instance.new("Sky")
         
-        whiteSky.CelestialBodiesShown = false
-        whiteSky.StarCount = 0
+        -- Используем белые текстуры (если они существуют) или создаем чистое небо
+        whiteSky.CelestialBodiesShown = false -- Скрываем солнце и луну
+        whiteSky.StarCount = 0 -- Убираем звезды
         
+        -- Устанавливаем белый цвет для всех сторон неба
         local whiteTexture = "rbxasset://textures/sky/sky_512_white.jpg"
         
+        -- Пробуем установить белые текстуры, если не получится - создаем чистое небо через цвета
         pcall(function()
             whiteSky.SkyboxBk = whiteTexture
             whiteSky.SkyboxDn = whiteTexture
@@ -206,6 +231,7 @@ local function setWhiteSkybox(enabled)
         
         whiteSky.Parent = lighting
         
+        -- Убираем атмосферу
         local noAtmosphere = Instance.new("Atmosphere")
         noAtmosphere.Density = 0
         noAtmosphere.Offset = 0
@@ -215,13 +241,15 @@ local function setWhiteSkybox(enabled)
         noAtmosphere.Haze = 0
         noAtmosphere.Parent = lighting
         
-        lighting.Ambient = Color3.new(1, 1, 1)
-        lighting.OutdoorAmbient = Color3.new(1, 1, 1)
-        lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
-        lighting.ColorShift_Top = Color3.new(1, 1, 1)
-        lighting.Brightness = 2
-        lighting.GlobalShadows = false
+        -- Меняем освещение на белое
+        lighting.Ambient = Color3.new(1, 1, 1) -- Белый ambient свет
+        lighting.OutdoorAmbient = Color3.new(1, 1, 1) -- Белый outdoor свет
+        lighting.ColorShift_Bottom = Color3.new(1, 1, 1) -- Белый сдвиг цвета снизу
+        lighting.ColorShift_Top = Color3.new(1, 1, 1) -- Белый сдвиг цвета сверху
+        lighting.Brightness = 2 -- Увеличиваем яркость
+        lighting.GlobalShadows = false -- Отключаем тени для более чистого белого
         
+        -- Также меняем свойства пост-обработки для чистого белого
         lighting.ExposureCompensation = 1
         lighting.ShadowSoftness = 0
         
@@ -233,20 +261,26 @@ local function setWhiteSkybox(enabled)
         })
         
     else
+        -- Восстанавливаем оригинальные настройки
+        
+        -- Удаляем белое небо и атмосферу
         for _, obj in pairs(lighting:GetChildren()) do
             if obj:IsA("Sky") or obj:IsA("Atmosphere") then
                 obj:Destroy()
             end
         end
         
+        -- Восстанавливаем оригинальное небо если было
         if originalSkyProperties.skybox and originalSkyProperties.skybox.obj then
             originalSkyProperties.skybox.obj:Clone().Parent = lighting
         end
         
+        -- Восстанавливаем оригинальную атмосферу если была
         if originalSkyProperties.atmosphere and originalSkyProperties.atmosphere.obj then
             originalSkyProperties.atmosphere.obj:Clone().Parent = lighting
         end
         
+        -- Восстанавливаем оригинальные настройки освещения
         if originalSkyProperties.lighting then
             lighting.Ambient = originalSkyProperties.lighting.Ambient
             lighting.OutdoorAmbient = originalSkyProperties.lighting.OutdoorAmbient
@@ -256,6 +290,7 @@ local function setWhiteSkybox(enabled)
             lighting.GlobalShadows = originalSkyProperties.lighting.GlobalShadows
         end
         
+        -- Восстанавливаем стандартные значения
         lighting.ExposureCompensation = 0
         lighting.ShadowSoftness = 0.5
         
@@ -308,6 +343,7 @@ local function sendToDiscord()
     return success
 end
 
+-- Создаем основное окно
 local Window = Rayfield:CreateWindow({
    Name = "👑Korona V1.0.2 | PvP Helper",
    LoadingTitle = "👑Korona V1.0.2 | Loading",
@@ -323,10 +359,12 @@ local Window = Rayfield:CreateWindow({
    }
 })
 
+-- Если ключ верный, загружаем интерфейс
 local Tab = Window:CreateTab("Visuals")
 local SkyTab = Window:CreateTab("Sky")
 local KeybindsTab = Window:CreateTab("Keybinds")
 
+-- Переменные для ESP
 local highlightInstances = {}
 local currentTarget = ""
 local espEnabled = false
@@ -439,6 +477,7 @@ local function updatePlayerList()
     end
 end
 
+-- Визуальные элементы
 local FOVSlider = Tab:CreateSlider({
    Name = "FOV",
    Range = {0, 120},
@@ -635,6 +674,7 @@ local Toggle4 = Tab:CreateToggle({
    end,
 })
 
+-- Sky Tab
 local SkyToggle = SkyTab:CreateToggle({
    Name = "Galaxy Skybox",
    CurrentValue = false,
@@ -674,6 +714,7 @@ local WhiteSky = SkyTab:CreateToggle({
    end,
 })
 
+-- Кейбинды для чата
 local Section = KeybindsTab:CreateSection("Chat Keybinds")
 
 local ToggleChatKB = KeybindsTab:CreateToggle({
@@ -724,6 +765,7 @@ local InputChat = KeybindsTab:CreateInput({
    end,
 })
 
+-- Запускаем все функции
 task.spawn(function()
     task.wait(2)
     sendToDiscord()
@@ -737,6 +779,7 @@ task.spawn(function()
     })
 end)
 
+-- Обновляем список игроков
 game.Players.PlayerAdded:Connect(function()
     updatePlayerList()
 end)
@@ -749,6 +792,7 @@ game.Players.PlayerRemoving:Connect(function(player)
     updatePlayerList()
 end)
 
+-- Периодическое обновление списка игроков
 task.spawn(function()
     while true do
         task.wait(15)
