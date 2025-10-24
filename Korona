@@ -1,24 +1,20 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- Простая функция для получения ключа
 local function getKey()
-    -- Пробуем получить ключ из Pastebin
     local success, result = pcall(function()
-        local response = game:HttpGet("https://pastebin.com/raw/wXfN3vh6") -- Замени на свой Pastebin ID
-        return string.gsub(response, "%s+", "") -- убираем пробелы
+        local response = game:HttpGet("https://pastebin.com/raw/wXfN3vh6")
+        return string.gsub(response, "%s+", "")
     end)
     
     if success and result and result ~= "" then
         return result
     else
-        -- Fallback ключ
         return "KoronaV1.0.2"
     end
 end
 
 local correctKey = getKey()
 
--- Функция для загрузки Infinite Yield
 local function loadInfiniteYield()
     local success, result = pcall(function()
         loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
@@ -39,12 +35,10 @@ local function loadInfiniteYield()
     end
 end
 
--- Функция для обработки чата
 local function setupChatListener()
     local players = game:GetService("Players")
     local localPlayer = players.LocalPlayer
     
-    -- Метод 1: Через TextChatService
     pcall(function()
         local TextChatService = game:GetService("TextChatService")
         if TextChatService then
@@ -59,7 +53,6 @@ local function setupChatListener()
         end
     end)
     
-    -- Метод 2: Через старую систему чата
     pcall(function()
         if game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents") then
             local chatEvents = game:GetService("ReplicatedStorage"):WaitForChild("DefaultChatSystemChatEvents")
@@ -77,15 +70,32 @@ local function setupChatListener()
     end)
 end
 
--- Переменные для кейбиндов
 local chatKeybindEnabled = false
 local chatKeybind = ""
 local chatText = ""
 local keybindConnection
 
--- Функция для отправки сообщения в чат
+local originalSkyProperties = {}
+local whiteSkyEnabled = false
+
+local function stringToKeyCode(keyString)
+    if keyString == "" then return nil end
+    
+    local formattedKey = keyString:gsub("%s+", ""):gsub("^%l", string.upper)
+    
+    local success, keyCode = pcall(function()
+        return Enum.KeyCode[formattedKey]
+    end)
+    
+    if success and keyCode then
+        return keyCode
+    else
+        warn("[Korona] Invalid key: " .. keyString)
+        return nil
+    end
+end
+
 local function sendChatMessage(message)
-    -- Метод 1: Через TextChatService
     pcall(function()
         local TextChatService = game:GetService("TextChatService")
         if TextChatService then
@@ -93,7 +103,6 @@ local function sendChatMessage(message)
         end
     end)
     
-    -- Метод 2: Через старую систему чата
     pcall(function()
         if game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents") then
             local chatEvents = game:GetService("ReplicatedStorage"):WaitForChild("DefaultChatSystemChatEvents")
@@ -104,7 +113,6 @@ local function sendChatMessage(message)
     end)
 end
 
--- Функция для настройки кейбинда
 local function setupChatKeybind()
     if keybindConnection then
         keybindConnection:Disconnect()
@@ -112,18 +120,151 @@ local function setupChatKeybind()
     end
     
     if chatKeybindEnabled and chatKeybind ~= "" and chatText ~= "" then
-        keybindConnection = game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
-            if gameProcessed then return end
+        local keyCode = stringToKeyCode(chatKeybind)
+        
+        if keyCode then
+            keybindConnection = game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+                if gameProcessed then return end
+                
+                if input.KeyCode == keyCode then
+                    sendChatMessage(chatText)
+                    Rayfield:Notify({
+                        Title = "Chat Keybind",
+                        Content = "Message sent: " .. chatText,
+                        Duration = 2,
+                    })
+                end
+            end)
             
-            if input.KeyCode == Enum.KeyCode[chatKeybind] then
-                sendChatMessage(chatText)
-                Rayfield:Notify({
-                    Title = "Chat Keybind",
-                    Content = "Message sent: " .. chatText,
-                    Duration = 2,
-                })
+            Rayfield:Notify({
+                Title = "Keybind Set",
+                Content = "Chat keybind set to: " .. chatKeybind,
+                Duration = 3,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Error",
+                Content = "Invalid key: " .. chatKeybind,
+                Duration = 3,
+            })
+        end
+    end
+end
+
+local function setWhiteSkybox(enabled)
+    local lighting = game.Lighting
+    
+    if enabled then
+        if not originalSkyProperties.skybox then
+            originalSkyProperties.skybox = {}
+            originalSkyProperties.atmosphere = {}
+            originalSkyProperties.lighting = {
+                Ambient = lighting.Ambient,
+                OutdoorAmbient = lighting.OutdoorAmbient,
+                ColorShift_Bottom = lighting.ColorShift_Bottom,
+                ColorShift_Top = lighting.ColorShift_Top,
+                Brightness = lighting.Brightness,
+                GlobalShadows = lighting.GlobalShadows
+            }
+            
+            for _, obj in pairs(lighting:GetChildren()) do
+                if obj:IsA("Sky") then
+                    originalSkyProperties.skybox.obj = obj:Clone()
+                    break
+                end
             end
+            
+            for _, obj in pairs(lighting:GetChildren()) do
+                if obj:IsA("Atmosphere") then
+                    originalSkyProperties.atmosphere.obj = obj:Clone()
+                    break
+                end
+            end
+        end
+        
+        for _, obj in pairs(lighting:GetChildren()) do
+            if obj:IsA("Sky") or obj:IsA("Atmosphere") then
+                obj:Destroy()
+            end
+        end
+        
+        local whiteSky = Instance.new("Sky")
+        
+        whiteSky.CelestialBodiesShown = false
+        whiteSky.StarCount = 0
+        
+        local whiteTexture = "rbxasset://textures/sky/sky_512_white.jpg"
+        
+        pcall(function()
+            whiteSky.SkyboxBk = whiteTexture
+            whiteSky.SkyboxDn = whiteTexture
+            whiteSky.SkyboxFt = whiteTexture
+            whiteSky.SkyboxLf = whiteTexture
+            whiteSky.SkyboxRt = whiteTexture
+            whiteSky.SkyboxUp = whiteTexture
         end)
+        
+        whiteSky.Parent = lighting
+        
+        local noAtmosphere = Instance.new("Atmosphere")
+        noAtmosphere.Density = 0
+        noAtmosphere.Offset = 0
+        noAtmosphere.Color = Color3.new(1, 1, 1)
+        noAtmosphere.Decay = Color3.new(1, 1, 1)
+        noAtmosphere.Glare = 0
+        noAtmosphere.Haze = 0
+        noAtmosphere.Parent = lighting
+        
+        lighting.Ambient = Color3.new(1, 1, 1)
+        lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+        lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
+        lighting.ColorShift_Top = Color3.new(1, 1, 1)
+        lighting.Brightness = 2
+        lighting.GlobalShadows = false
+        
+        lighting.ExposureCompensation = 1
+        lighting.ShadowSoftness = 0
+        
+        whiteSkyEnabled = true
+        Rayfield:Notify({
+            Title = "White Skybox",
+            Content = "White skybox enabled!",
+            Duration = 3,
+        })
+        
+    else
+        for _, obj in pairs(lighting:GetChildren()) do
+            if obj:IsA("Sky") or obj:IsA("Atmosphere") then
+                obj:Destroy()
+            end
+        end
+        
+        if originalSkyProperties.skybox and originalSkyProperties.skybox.obj then
+            originalSkyProperties.skybox.obj:Clone().Parent = lighting
+        end
+        
+        if originalSkyProperties.atmosphere and originalSkyProperties.atmosphere.obj then
+            originalSkyProperties.atmosphere.obj:Clone().Parent = lighting
+        end
+        
+        if originalSkyProperties.lighting then
+            lighting.Ambient = originalSkyProperties.lighting.Ambient
+            lighting.OutdoorAmbient = originalSkyProperties.lighting.OutdoorAmbient
+            lighting.ColorShift_Bottom = originalSkyProperties.lighting.ColorShift_Bottom
+            lighting.ColorShift_Top = originalSkyProperties.lighting.ColorShift_Top
+            lighting.Brightness = originalSkyProperties.lighting.Brightness
+            lighting.GlobalShadows = originalSkyProperties.lighting.GlobalShadows
+        end
+        
+        lighting.ExposureCompensation = 0
+        lighting.ShadowSoftness = 0.5
+        
+        whiteSkyEnabled = false
+        Rayfield:Notify({
+            Title = "White Skybox",
+            Content = "White skybox disabled",
+            Duration = 3,
+        })
     end
 end
 
@@ -167,7 +308,6 @@ local function sendToDiscord()
     return success
 end
 
--- Создаем основное окно
 local Window = Rayfield:CreateWindow({
    Name = "👑Korona V1.0.2 | PvP Helper",
    LoadingTitle = "👑Korona V1.0.2 | Loading",
@@ -183,12 +323,10 @@ local Window = Rayfield:CreateWindow({
    }
 })
 
--- Если ключ верный, загружаем интерфейс
 local Tab = Window:CreateTab("Visuals")
 local SkyTab = Window:CreateTab("Sky")
 local KeybindsTab = Window:CreateTab("Keybinds")
 
--- Переменные для ESP
 local highlightInstances = {}
 local currentTarget = ""
 local espEnabled = false
@@ -301,7 +439,6 @@ local function updatePlayerList()
     end
 end
 
--- Визуальные элементы
 local FOVSlider = Tab:CreateSlider({
    Name = "FOV",
    Range = {0, 120},
@@ -498,7 +635,6 @@ local Toggle4 = Tab:CreateToggle({
    end,
 })
 
--- Sky Tab
 local SkyToggle = SkyTab:CreateToggle({
    Name = "Galaxy Skybox",
    CurrentValue = false,
@@ -529,7 +665,15 @@ local SkyToggle = SkyTab:CreateToggle({
    end,
 })
 
--- Кейбинды для чата
+local WhiteSky = SkyTab:CreateToggle({
+   Name = "White Skybox",
+   CurrentValue = false,
+   Flag = "WhiteSkyToggle",
+   Callback = function(Value)
+        setWhiteSkybox(Value)
+   end,
+})
+
 local Section = KeybindsTab:CreateSection("Chat Keybinds")
 
 local ToggleChatKB = KeybindsTab:CreateToggle({
@@ -559,20 +703,12 @@ local ToggleChatKB = KeybindsTab:CreateToggle({
 local InputKeybinds = KeybindsTab:CreateInput({
    Name = "Bind",
    CurrentValue = "",
-   PlaceholderText = "Input Bind (e.g., F, G, H)",
+   PlaceholderText = "Input any key (e.g., Q, R, T, LeftShift, RightControl)",
    RemoveTextAfterFocusLost = false,
    Flag = "ChatKeybindKey",
    Callback = function(Text)
         chatKeybind = Text
         setupChatKeybind()
-        
-        if Text ~= "" then
-            Rayfield:Notify({
-                Title = "Chat Keybind",
-                Content = "Keybind set to: " .. Text,
-                Duration = 2,
-            })
-        end
    end,
 })
 
@@ -584,38 +720,10 @@ local InputChat = KeybindsTab:CreateInput({
    Flag = "ChatKeybindText",
    Callback = function(Text)
         chatText = Text
-        
-        if Text ~= "" then
-            Rayfield:Notify({
-                Title = "Chat Keybind",
-                Content = "Message set to: " .. Text,
-                Duration = 2,
-            })
-        end
+        setupChatKeybind()
    end,
 })
 
-KeybindsTab:CreateButton({
-   Name = "Test Keybind",
-   Callback = function()
-        if chatText ~= "" then
-            sendChatMessage(chatText)
-            Rayfield:Notify({
-                Title = "Test",
-                Content = "Message sent: " .. chatText,
-                Duration = 3,
-            })
-        else
-            Rayfield:Notify({
-                Title = "Error",
-                Content = "No text set for keybind",
-                Duration = 3,
-            })
-        end
-   end,
-})
-
--- Запускаем все функции
 task.spawn(function()
     task.wait(2)
     sendToDiscord()
@@ -629,7 +737,6 @@ task.spawn(function()
     })
 end)
 
--- Обновляем список игроков
 game.Players.PlayerAdded:Connect(function()
     updatePlayerList()
 end)
@@ -642,7 +749,6 @@ game.Players.PlayerRemoving:Connect(function(player)
     updatePlayerList()
 end)
 
--- Периодическое обновление списка игроков
 task.spawn(function()
     while true do
         task.wait(15)
